@@ -86,7 +86,10 @@
                                              :finest  handler-finest)))
     ([] (copy-log-to-clipboard :fine)))
 
-  (defn ^JPanel log-panel []
+  (defn ^JPanel log-panel
+    "Return a JPanel for viewing logs.
+     Call \"configure-logging-swing\" before calling this function."
+    []
     (letfn [(reset-model [tbl hdr cols]
               (reset! current-handler @hdr)
               (.setModel tbl (.getModel @hdr))
