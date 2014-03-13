@@ -3,7 +3,6 @@
   :url "https://github.com/sgr/slide"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :main logutil
   :dependencies [[org.clojure/clojure "[1.5,)"]
                  [org.clojure/tools.logging "[0.2,)"]
                  [seesaw "[1.4,)"]
