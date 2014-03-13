@@ -8,7 +8,7 @@ Several utility functions and classes for Swing-based desktop application.
 Slide is available in [Clojars.org](https://clojars.org/slide).
 Your leiningen project.clj:
 
-   [slide "0.2.0"]
+   [slide "0.2.1"]
 
 ## Documentation
 * [Project homepage](http://sgr.github.io/slide/)

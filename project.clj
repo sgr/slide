@@ -1,4 +1,4 @@
-(defproject slide "0.2.0"
+(defproject slide "0.2.1"
   :description "Several utility functions and classes for Swing-based desktop application."
   :url "https://github.com/sgr/slide"
   :license {:name "Eclipse Public License"
@@ -19,7 +19,6 @@
                    :logging :logging
                    :regression :regression
                    :all (constantly true)}
-  :aot :all
   :java-cmd ~(let [sys (.toLowerCase (System/getProperty "os.name"))]
                (condp re-find sys
                  #"mac" "/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/bin/java"
