@@ -6,6 +6,7 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.GraphicsEnvironment;
 import java.awt.Graphics2D;
+import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.font.FontRenderContext;
 import java.awt.font.LineBreakMeasurer;
@@ -26,7 +27,8 @@ public class AttributedLabel extends JLabel {
     protected Font _font = null;
     protected Color _color = Color.BLACK;
 
-    private Dimension _preferredSize = null;
+    private Insets _insets;
+    private Dimension _preferredSize = new Dimension(0, 0);
     private int _ascent = -1;
 
     public AttributedLabel() {
@@ -40,7 +42,6 @@ public class AttributedLabel extends JLabel {
 
     @Override
     public void setText(String text) {
-	_preferredSize = null;
 	_atext = null;
 	_text = null;
 	if (text != null && text.length() > 0) {
@@ -49,9 +50,7 @@ public class AttributedLabel extends JLabel {
 	    if (_font != null) {
 		applyFont(_font, 0, _text.length());
 	    }
-	    Graphics2D g2 = CIMG.createGraphics();
-	    _preferredSize = preferredStrSize(g2);
-	    g2.dispose();
+	    preferredStrSize();
 	}
     }
 
@@ -98,20 +97,24 @@ public class AttributedLabel extends JLabel {
 	}
     }
 
-    private Dimension preferredStrSize(Graphics g) {
-	Graphics2D g2 = (Graphics2D)g;
+    private Dimension preferredStrSize() {
+	Graphics2D g2 = CIMG.createGraphics();
 	FontRenderContext fc = g2.getFontRenderContext();
 	TextLayout l = new TextLayout(_atext.getIterator(), fc);
-	Rectangle2D b = l.getBounds();
-
 	_ascent = (int)Math.ceil(l.getAscent());
-	return new Dimension((int)Math.ceil(b.getWidth()), (int)Math.ceil(b.getHeight()));
+	_insets = getInsets(_insets);
+	Rectangle2D b = l.getPixelBounds(fc, _insets.left, _ascent);
+
+	_preferredSize.setSize(_insets.left + (int)Math.ceil(b.getWidth()) + _insets.right,
+			       _insets.top + (int)Math.ceil(b.getHeight() + l.getLeading()) + _insets.bottom);
+	g2.dispose();
+	return _preferredSize;
     }
 
     @Override
     public Dimension getPreferredSize() {
-	if (_preferredSize != null) {
-	    return _preferredSize;
+	if (_atext != null) {
+	    return preferredStrSize();
 	} else {
 	    return super.getPreferredSize();
 	}
@@ -119,14 +122,13 @@ public class AttributedLabel extends JLabel {
 
     @Override
     public void paintComponent(Graphics g) {
-	_preferredSize = preferredStrSize(g);
-
 	super.paintComponent(g);
 	if (_atext != null) {
 	    Graphics2D g2 = (Graphics2D)g;
 	    g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
 				RenderingHints.VALUE_TEXT_ANTIALIAS_GASP);
-	    g.drawString(_atext.getIterator(), 0, _ascent);
+	    _insets = getInsets(_insets);
+	    g.drawString(_atext.getIterator(), _insets.left, _ascent);
 	}
     }
 }

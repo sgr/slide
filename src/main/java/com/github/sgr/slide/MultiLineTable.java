@@ -38,7 +38,7 @@ public class MultiLineTable extends JTable {
 	private void updateRowHeight(int row) {
 	    int r = _tbl.convertRowIndexToView(row);
 	    int mrh = maxRowHeight(r);
-	    if (_tbl.getRowHeight(r) != mrh) {
+	    if (mrh > 0 && _tbl.getRowHeight(r) != mrh) {
 		_tbl.setRowHeight(r, mrh);
 	    }
 	}

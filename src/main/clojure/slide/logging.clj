@@ -2,17 +2,28 @@
 (ns slide.logging
   (:require [clojure.string :as s]
             [clojure.tools.logging :as log]
-            [logutil :as lu])
-  (:import [java.awt BorderLayout Dialog$ModalityType Dimension Toolkit]
+            [logutil :as lu]
+            [seesaw.core :as sc]
+            [seesaw.bind :as sb]
+            [seesaw.mig :as sm]
+            [slide.core :as slc])
+  (:import [java.awt Dialog$ModalityType Dimension Toolkit]
            [java.awt.datatransfer StringSelection]
-           [java.awt.event ActionListener ItemEvent ItemListener]
-           [java.io ByteArrayInputStream ByteArrayOutputStream InputStream]
            [java.util.logging Level Logger LogManager]
-           [javax.swing GroupLayout JButton JComboBox JDialog JLabel JPanel JOptionPane
-            JScrollPane JTable ListSelectionModel SwingConstants WindowConstants]
+           [javax.swing JOptionPane JScrollPane JTable ListSelectionModel SwingConstants WindowConstants]
            [javax.swing.table JTableHeader TableColumn]
            [com.github.sgr.slide MultiLineTable]
            [com.github.sgr.slide.logging LogRecordRenderer LogRecordRow TableModelHandler]))
+
+(def COLS {:date    {:midx 0 :width 180 :display-name "Date"    :resizable true}
+           :thread  {:midx 1 :width 50  :display-name "Thread"  :resizable true}
+           :level   {:midx 2 :width 50  :display-name "Level"   :resizable true}
+           :logger  {:midx 3 :width 150 :display-name "Logger"  :resizable true}
+           :class   {:midx 4 :width 150 :display-name "Class"   :resizable true}
+           :method  {:midx 5 :width 80  :display-name "Method"  :resizable true}
+           :message {:midx 6 :width 450 :display-name "Message" :resizable true}})
+
+(def LOG-TABLE-HEIGHT 400)
 
 (def ^{:private true} PMAP-GUI-EXCLUDE
   {"java.level" "INFO"
@@ -28,37 +39,35 @@
     (.setCellRenderer renderer)
     (.setResizable resizable)))
 
-(let [handler-severe  (atom nil)
-      handler-warning (atom nil)
-      handler-info    (atom nil)
-      handler-fine    (atom nil)
-      handler-finer   (atom nil)
-      handler-finest  (atom nil)
+(defn- ^TableModelHandler handler [capacity level]
+  (doto (TableModelHandler. capacity)
+    (.setLevel ({:severe Level/SEVERE :warning Level/WARNING :info Level/INFO
+                 :fine Level/FINE :finer Level/FINER :finest Level/FINEST}
+                level))))
+
+(let [hdrs {:severe  (atom nil)
+            :warning (atom nil)
+            :info    (atom nil)
+            :fine    (atom nil)
+            :finer   (atom nil)
+            :finest  (atom nil)}
       current-handler (atom nil)
       formatter (logutil.Log4JLikeFormatter.)]
+
   (defn configure-logging-swing
-  "Initialize logging configuration for Swing GUI.
+    "Initialize logging configuration for Swing GUI.
    The format of property-map is similar to configure-logging."
     [capacity property-map]
     (let [root-logger (Logger/getLogger "")]
       (doseq [h (.getHandlers root-logger)] (.removeHandler root-logger h))
       (doto (LogManager/getLogManager) (.reset))
       (lu/configure-logging (merge property-map PMAP-GUI-EXCLUDE))
-      (reset! handler-severe  (doto (TableModelHandler. capacity) (.setLevel Level/SEVERE)))
-      (reset! handler-warning (doto (TableModelHandler. capacity) (.setLevel Level/WARNING)))
-      (reset! handler-info    (doto (TableModelHandler. capacity) (.setLevel Level/INFO)))
-      (reset! handler-fine    (doto (TableModelHandler. capacity) (.setLevel Level/FINE)))
-      (reset! handler-finer   (doto (TableModelHandler. capacity) (.setLevel Level/FINER)))
-      (reset! handler-finest  (doto (TableModelHandler. capacity) (.setLevel Level/FINEST)))
-      (doto root-logger
-        (.addHandler @handler-severe)
-        (.addHandler @handler-warning)
-        (.addHandler @handler-info)
-        (.addHandler @handler-fine)
-        (.addHandler @handler-finer)
-        (.addHandler @handler-finest))))
+      (doseq [[k ref-hdr] hdrs]
+        (let [hdr (handler capacity k)]
+          (reset! ref-hdr hdr)
+          (.addHandler root-logger hdr)))))
 
-  (defn- copy-log-to-clipboard-from-handler
+  (defn copy-log-to-clipboard-from-handler
     ([hdr-ref]
        (if-let [tk (Toolkit/getDefaultToolkit)]
          (if-let [cboard (.getSystemClipboard tk)]
@@ -76,105 +85,68 @@
      \"level\" is either of :severe :warning :info :fine :finer :finest.
      The number of log records is specified to configure-logging-swing as \"capacity\"."
     ([^clojure.lang.Keyword level]
-       {:pre [(contains? #{:severe :warning :info :fine :finer :finest} level)]}
-       (copy-log-to-clipboard-from-handler (condp = level
-                                             :severe  handler-severe
-                                             :warning handler-warning
-                                             :info    handler-info
-                                             :fine    handler-fine
-                                             :finer   handler-finer
-                                             :finest  handler-finest)))
+       {:pre [(contains? (set (keys hdrs)) level)]}
+       (copy-log-to-clipboard-from-handler (hdrs level)))
     ([] (copy-log-to-clipboard :fine)))
 
-  (defn ^JPanel log-panel
+  (defn log-panel
     "Return a JPanel for viewing logs.
      Call \"configure-logging-swing\" before calling this function."
     []
-    (letfn [(reset-model [tbl hdr cols]
+    (letfn [(gen-cols [col-keys rdr]
+              (map #(let [{:keys [midx width display-name resizable]} (get COLS %)]
+                      (table-column midx width (name %) display-name rdr resizable))
+                   col-keys))
+            (reset-model [tbl hdr cols]
               (reset! current-handler @hdr)
               (.setModel tbl (.getModel @hdr))
               (-> tbl .getTableHeader (.setReorderingAllowed false))
               (-> tbl .getColumnModel (.setColumnMargin 0))
               (doseq [col cols] (.addColumn tbl col)))]
               
-      (let [rdr (LogRecordRenderer.)
-            cols [(table-column 0 180 "date"    "Date"    rdr true)
-                  (table-column 1 20  "thread"  "Thread"  rdr true)
-                  (table-column 2 80  "level"   "Level"   rdr true)
-                  (table-column 3 150 "logger"  "Logger"  rdr true)
-                  ;; (table-column 4 150 "class"   "Class"   rdr true)
-                  ;; (table-column 5 80  "method"  "Method"  rdr true)
-                  (table-column 6 450 "message" "Message" rdr true)]
+      (let [col-keys [:date :thread :level :message]
             tbl (doto (MultiLineTable.)
-                  (.setPreferredScrollableViewportSize (Dimension. 850 400))
+                  (.setPreferredScrollableViewportSize
+                   (Dimension. (->> (map #(get-in COLS [% :width]) col-keys) (apply +)) LOG-TABLE-HEIGHT))
                   (.setSelectionMode ListSelectionModel/SINGLE_SELECTION)
                   (.setAutoResizeMode JTable/AUTO_RESIZE_NEXT_COLUMN))
-            stbl (JScrollPane. tbl)
-            levels ["SEVERE" "WARNING" "INFO" "FINE" "FINER" "FINEST"]
-            combo (doto (JComboBox. (into-array String levels))
-                    (.setSelectedItem "INFO")
-                    (.addItemListener
-                     (proxy [ItemListener][]
-                       (itemStateChanged [evt]
-                         (when (= ItemEvent/SELECTED (.getStateChange evt))
-                           (when-let [hdr (condp = (nth levels (-> evt .getSource .getSelectedIndex))
-                                            "SEVERE"  handler-severe
-                                            "WARNING" handler-warning
-                                            "INFO"    handler-info
-                                            "FINE"    handler-fine
-                                            "FINER"   handler-finer
-                                            "FINEST"  handler-finest)] 
-                             (reset-model tbl hdr cols)))))))
-            cbtn (doto (JButton. "Copy log to clipboard")
-                   (.addActionListener
-                    (proxy [ActionListener][]
-                      (actionPerformed [evt]
-                        (copy-log-to-clipboard-from-handler)))))
-            clabel (doto (JLabel. "Log level " SwingConstants/TRAILING)
-                     (.setMinimumSize (Dimension. 450 (->> combo .getPreferredSize .height))))
-            cpanel (JPanel.)
-            layout (GroupLayout. cpanel)
-            hgrp (doto (.createSequentialGroup layout)
-                   (.addGroup (.. layout createParallelGroup
-                                  (addGroup (.. layout createSequentialGroup
-                                                (addComponent clabel)
-                                                (addComponent combo)
-                                                (addComponent cbtn)))
-                                  (addComponent stbl))))
-            vgrp (doto (.createSequentialGroup layout)
-                   (.addGroup (.. layout createParallelGroup
-                                  (addComponent clabel)
-                                  (addComponent combo)
-                                  (addComponent cbtn)))
-                   (.addGroup (.. layout createParallelGroup
-                                  (addComponent stbl))))]
-        (reset-model tbl handler-info cols)
+            rdr (LogRecordRenderer.)
+            cols (gen-cols col-keys rdr)
+            cbtn (sc/button
+                  :text "Copy log to clipboard"
+                  :listen [:action
+                           (fn [_] (copy-log-to-clipboard-from-handler current-handler))])
+            combo (sc/combobox
+                   :model (keys hdrs)
+                   :renderer (fn [rdr m]
+                               (.setHorizontalAlignment rdr SwingConstants/CENTER)
+                               (.setText rdr (-> (:value m) name s/upper-case)))
+                   :listen [:selection
+                            (fn [e]
+                              (when-let [hdr (hdrs (sc/selection (.getSource e)))]
+                                (reset-model tbl hdr cols)))])]
+        (sc/selection! combo :info)
+        (sc/border-panel :north (sm/mig-panel
+                                 :constraints ["wrap 3, ins 5 10 5 10" "[:450:][:150:][:200:]" ""]
+                                 :items [["Log level" "align right"] [combo "grow"] [cbtn "align right"]])
+                         :center (sc/scrollable tbl)))))
 
-        (doto layout
-          (.setHorizontalGroup hgrp)
-          (.setVerticalGroup vgrp)
-          (.setAutoCreateGaps true)
-          (.setAutoCreateContainerGaps true))
-        (doto cpanel
-          (.setLayout layout)))))
-
-  (defn ^JDialog log-dlg
-    "Display a dialog for viewing logs.
+  (defn log-dlg
+    "Return a dialog for viewing logs.
+      (log-dlg parent title options)
      \"parent\" is a parent frame.
+     options can also be one of:
+       :visible? is set to true, the dialog will be displayed. (default value is false)
      Call \"configure-logging-swing\" before calling this function."
-    [parent title]
-    (when-not @handler-info (configure-logging-swing 100 {}))
+    [parent title & {:keys [visible?] :or {visible? false}}]
     (let [op (doto (JOptionPane.)
                (.setOptionType JOptionPane/DEFAULT_OPTION)
-               (.setMessage (log-panel)))]
-      (if parent
-        (doto (.createDialog op parent title)
-          (.setDefaultCloseOperation WindowConstants/DISPOSE_ON_CLOSE)
-          (.setLocationRelativeTo parent)
-          (.setModalityType Dialog$ModalityType/MODELESS)
-          (.pack))
-        (doto (.createDialog op title)
-          (.setDefaultCloseOperation WindowConstants/DISPOSE_ON_CLOSE)
-          (.setModalityType Dialog$ModalityType/MODELESS)
-          (.pack))))))
-
+               (.setMessage (log-panel)))
+          dlg (doto (.createDialog op parent title)
+                (.setDefaultCloseOperation WindowConstants/DISPOSE_ON_CLOSE)
+                (.setLocationRelativeTo parent)
+                (.setModalityType Dialog$ModalityType/MODELESS)
+                (.pack))]
+      (if visible?
+        (doto dlg (.setVisible true))
+        dlg))))

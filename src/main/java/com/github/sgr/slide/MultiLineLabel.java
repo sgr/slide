@@ -29,15 +29,18 @@ import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import javax.swing.JComponent;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JViewport;
 import javax.swing.Scrollable;
+import javax.swing.SwingUtilities;
 import javax.swing.text.html.HTMLEditorKit;
 
 public class MultiLineLabel extends JComponent implements Scrollable {
     public static Cursor LINK_CURSOR = (new HTMLEditorKit()).getLinkCursor();
     public static Cursor DEFAULT_CURSOR = Cursor.getDefaultCursor();
     public static String LINE_SEPARATOR = System.getProperty("line.separator");
+    public static LinkHandler DEFAULT_LINK_HANDLER = new DefaultLinkHandler();
     private static BufferedImage CIMG = GraphicsEnvironment.getLocalGraphicsEnvironment().
 	getDefaultScreenDevice().getDefaultConfiguration().createCompatibleImage(50, 50);
 
@@ -45,6 +48,7 @@ public class MultiLineLabel extends JComponent implements Scrollable {
     private Font _font;
     private String _text = null;
     private LinkRect[] _links = null;
+    private LinkHandlers _lhdrs = null;
     private MouseAdapter _mouseAdapter = null;
 
     private int _width = 0;
@@ -99,25 +103,24 @@ public class MultiLineLabel extends JComponent implements Scrollable {
 			}
 		    }
 		}
+		private LinkRect hitLinkRect(MouseEvent e) {
+		    int x = e.getX();
+		    int y = e.getY();
+		    for (LinkRect l : _links) {
+			for (Rectangle2D r : l.rects) {
+			    if (r.contains(x, y)) {
+				return l;
+			    }
+			}
+		    }
+		    return null;
+		}
 		@Override
 		public void mouseClicked(MouseEvent e) {
-		    if (_links != null) {
-			int x = e.getX();
-			int y = e.getY();
-			for (LinkRect l : _links) {
-			    boolean b = false;
-			    for (Rectangle2D r : l.rects) {
-				if (r.contains(x, y)) {
-				    b = true;
-				    break;
-				}
-			    }
-			    if (b && l.link.uri != null) {
-				try {
-				    Desktop.getDesktop().browse(l.link.uri);
-				} catch (Exception t) {
-				}
-			    }
+		    if (_links != null && _lhdrs != null && !SwingUtilities.isRightMouseButton(e)) {
+			LinkRect l = hitLinkRect(e);
+			if (l != null && l.link.uri != null) {
+			    _lhdrs.getHandler(0).browse(l.link.uri);
 			}
 		    }
 		}
@@ -144,9 +147,41 @@ public class MultiLineLabel extends JComponent implements Scrollable {
 		public void mouseExited(MouseEvent e) {
 		    clear();
 		}
+		private void popup(MouseEvent e) {
+		    if (_links != null && _lhdrs != null && e.isPopupTrigger()) {
+			LinkRect l = hitLinkRect(e);
+			if (l != null && l.link.uri != null) {
+			    JComponent c = (JComponent)e.getSource();
+			    JPopupMenu pmenu = new JPopupMenu("Open with");
+			    for (int i = 0; i < _lhdrs.getHandlerCount(); i++) {
+				LinkHandler lh = _lhdrs.getHandler(i);
+				lh.setURI(l.link.uri);
+				pmenu.add(lh);
+			    }
+			    pmenu.show(c, e.getX(), e.getY());
+			    e.consume();
+			}
+		    }
+		}
+		@Override
+		public void mousePressed(MouseEvent e) {
+		    popup(e);
+		}
+		@Override
+		public void mouseReleased(MouseEvent e) {
+		    popup(e);
+		}
 	    };
 	addMouseListener(_mouseAdapter);
 	addMouseMotionListener(_mouseAdapter);
+	setLinkHandlers(new LinkHandlers () {
+		public int getHandlerCount() {
+		    return 1;
+		}
+		public LinkHandler getHandler(int idx) {
+		    return DEFAULT_LINK_HANDLER;
+		}
+	    });
     }
 
     public void dispose() {
@@ -156,6 +191,11 @@ public class MultiLineLabel extends JComponent implements Scrollable {
 	for (MouseMotionListener l : getMouseMotionListeners()) {
 	    removeMouseMotionListener(l);
 	}
+	_lhdrs = null;
+    }
+
+    public void setLinkHandlers(LinkHandlers lhdrs) {
+	_lhdrs = lhdrs;
     }
 
     private void setText(String text, AttributedString atext) {
@@ -435,6 +475,18 @@ public class MultiLineLabel extends JComponent implements Scrollable {
     public void setBounds(Rectangle r) {
 	super.setBounds(r);
 	setWidth(r.width);
+    }
+
+    @Override
+    public void setSize(Dimension d) {
+	super.setSize(d);
+	setWidth(d.width);
+    }
+
+    @Override
+    public void setSize(int width, int height) {
+	super.setSize(width, height);
+	setWidth(width);
     }
 
     @Override

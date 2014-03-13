@@ -1,49 +1,44 @@
+;; -*- coding: utf-8-unix -*-
 (ns slide.logging-test
   (:require [clojure.test :refer :all]
             [clojure.tools.logging :as log]
-            [slide.logging :refer :all])
-  (:import [java.awt Dimension GraphicsEnvironment]
-           [java.awt.event ActionListener WindowAdapter]
-           [javax.swing JButton JFrame SwingUtilities WindowConstants]))
+            [seesaw.core :as sc]
+            [slide.core :as slc]
+            [slide.logging :refer :all]))
 
-(defn- test-frame []
-  (let [e (GraphicsEnvironment/getLocalGraphicsEnvironment)
-        p (.getCenterPoint e)
-        width 300
-        height 200
-        frame (JFrame. "test frame")
-        btn (doto (JButton. "display log dialog")
-              (.addActionListener
-               (proxy [ActionListener][]
-                 (actionPerformed [evt]
-                   (doto (log-dlg frame "Application log")
-                     (.setVisible true))))))]
-    (doto frame
-      (.setContentPane btn)
-      (.setPreferredSize (Dimension. width height))
-      (.pack)
-      (.setDefaultCloseOperation WindowConstants/DISPOSE_ON_CLOSE)
-      (.setLocation (- (.x p) (int (/ width 2))) (- (.y p) (int (/ height 2)))))))
+(defn- test-frame [title content]
+  (sc/frame
+   :title title
+   :content content
+   :size [300 :by 200]
+   :on-close :dispose))
 
 (defn- wait-closing [frame]
   (let [p (promise)]
-    (.addWindowListener frame (proxy [WindowAdapter][]
-                                (windowClosed [evt]
-                                  (deliver p true))))
-    (SwingUtilities/invokeAndWait (fn [] (.setVisible frame true)))
+    (sc/listen frame :window-closing (fn [_] (deliver p true)))
+    (-> frame slc/move-to-center! sc/show!)
     @p))
 
-(defn- log-all-level [i]
-  (doseq [level [:info :debug :trace :warn :error :fatal]]
-    (log/logf level "logged [%d] as %s" i (name level))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def ^{:private true} PMAP-GUI
-  {".level" "ALL"
-   "logutil-test.level" "ALL"})
-
-(deftest ^:integration gui-log-test
+(deftest ^:logging gui-log-test
   (testing "display log dialog"
-    (configure-logging-swing 30 PMAP-GUI)
-    (doseq [i (range 50)] (log-all-level i))
-    (wait-closing (test-frame))))
+    (configure-logging-swing 100 {"handlers" "java.util.logging.ConsoleHandler"
+                                  "java.util.logging.ConsoleHandler.formatter" "logutil.Log4JLikeFormatter"
+                                  ".level" "INFO"
+                                  "slide.logging-test.level" "ALL"})
+    ;; (configure-logging-swing 100 {".level" "INFO"
+    ;;                               "slide.logging-test.level" "ALL"})
+    (doseq [i (range 20)]
+      (doseq [level [:info :debug :trace :warn :error :fatal]]
+        (log/logf level "logged [%d] as %s" i (name level))))
 
+    (let [btn (sc/button :text "display log dialog")
+          frm (test-frame "gui-log-test" btn)]
+      (sc/listen btn :action
+                 (fn [_]
+                   (try
+                     (log-dlg frm "test log" :visible? true)
+                     (catch Exception e
+                       (log/errorf e "An error occurred")))))
+      (wait-closing frm))))
