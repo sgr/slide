@@ -15,7 +15,6 @@ import java.awt.font.TextLayout;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.text.AttributedString;
-import java.text.SimpleDateFormat;
 import javax.swing.JLabel;
 
 public class AttributedLabel extends JLabel {

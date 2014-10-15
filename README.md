@@ -5,10 +5,10 @@ Several utility functions and classes for Swing-based desktop application.
 
 ## Install
 
-Slide is available in [Clojars.org](https://clojars.org/slide).
+Slide is available in [Clojars.org](https://clojars.org/).
 Your leiningen project.clj:
 
-   [slide "0.2.1"]
+[![Clojars Project](http://clojars.org/slide/latest-version.svg)](http://clojars.org/slide)
 
 ## Documentation
 * [Project homepage](http://sgr.github.io/slide/)

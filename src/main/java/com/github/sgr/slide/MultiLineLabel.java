@@ -26,7 +26,6 @@ import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.text.AttributedString;
 import java.text.MessageFormat;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import javax.swing.JComponent;
 import javax.swing.JPopupMenu;
@@ -196,6 +195,10 @@ public class MultiLineLabel extends JComponent implements Scrollable {
 
     public void setLinkHandlers(LinkHandlers lhdrs) {
 	_lhdrs = lhdrs;
+    }
+
+    public String getText() {
+	return _text;
     }
 
     private void setText(String text, AttributedString atext) {
@@ -378,9 +381,19 @@ public class MultiLineLabel extends JComponent implements Scrollable {
 		} else {
 		    offsetLimit = nextNL;
 		}
-		TextLayout l = (offsetLimit != -1) ?
+		TextLayout l = null;
+		try {
+		    l = (offsetLimit != -1) ?
 		    m.nextLayout(restWidth, offsetLimit, false) :
 		    m.nextLayout(restWidth, _text.length(), false);
+		} catch (Exception e) {
+		    throw new IllegalArgumentException(String.format("pos=%d, offsetLimit=%d, nextNL=%d, currLink=[%d,%d,%s] nlink=[%d,%d,%s], _text=%s\n",
+								     pos, offsetLimit, nextNL,
+								     currLink.link.start, currLink.link.end, currLink.link.uri,
+								     nlink.link.start, nlink.link.end, nlink.link.uri,
+								     _text),
+						       e);
+		}
 
 		if (l != null) {
 		    if (restWidth < width &&

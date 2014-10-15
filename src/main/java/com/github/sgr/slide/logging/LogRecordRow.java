@@ -23,22 +23,36 @@ public class LogRecordRow extends StreamTableRow {
 
     public LogRecordRow(LogRecord record) {
 	_record = record;
-	_date = new Date(_record.getMillis());
-	_threadID = new Integer(_record.getThreadID());
     }
 
     public LogRecord getRecord() {
 	return _record;
     }
 
+    private Date getRecordDate() {
+	// lazy generation
+	if (_date == null) {
+	    _date = new Date(_record.getMillis());
+	}
+	return _date;
+    }
+
+    private Integer getRecordThreadID() {
+	// lazy generation
+	if (_threadID == null) {
+	    _threadID = new Integer(_record.getThreadID());
+	}
+	return _threadID;
+    }
+
     @Override public Object getValueAt(int column) {
 	Object value = null;
 	switch (column) {
 	case 0:
-	    value = _date;
+	    value = getRecordDate();
 	    break;
 	case 1:
-	    value = _threadID;
+	    value = getRecordThreadID();
 	    break;
 	case 2:
 	    value = _record.getLevel();

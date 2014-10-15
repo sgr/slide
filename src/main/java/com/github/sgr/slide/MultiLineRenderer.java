@@ -4,7 +4,6 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Rectangle;
-import java.text.SimpleDateFormat;
 import java.util.Date;
 import javax.swing.Icon;
 import javax.swing.JComponent;
@@ -13,20 +12,22 @@ import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.SwingConstants;
 import javax.swing.table.TableCellRenderer;
+import org.apache.commons.lang3.time.FastDateFormat;
 
 public class MultiLineRenderer implements TableCellRenderer {
     private static Color ODD_ROW_BACKGROUND = new Color(241, 246, 250);
+    private static FastDateFormat DEFAULT_DF = FastDateFormat.getInstance("HH:mm:ss");
     private MultiLineText _txtRenderer = null;
     private ImageLabel    _imgRenderer = null;
-    private SimpleDateFormat _df = null;
+    private FastDateFormat _df = null;
 
     public MultiLineRenderer(String datePattern) {
 	_txtRenderer = new MultiLineText();
 	_imgRenderer = new ImageLabel();
 	if (datePattern != null) {
-	    _df = new SimpleDateFormat(datePattern);
+	    _df = FastDateFormat.getInstance(datePattern);
 	} else {
-	    _df = new SimpleDateFormat("HH:mm:ss");
+	    _df = DEFAULT_DF;
 	}
     }
 
