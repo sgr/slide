@@ -51,8 +51,7 @@
             :fine    (atom nil)
             :finer   (atom nil)
             :finest  (atom nil)}
-      current-handler (atom nil)
-      formatter (logutil.Log4JLikeFormatter.)]
+      current-handler (atom nil)]
 
   (defn configure-logging-swing
     "Initialize logging configuration for Swing GUI.
@@ -72,7 +71,7 @@
        (if-let [tk (Toolkit/getDefaultToolkit)]
          (if-let [cboard (.getSystemClipboard tk)]
            (let [log-text (if (instance? TableModelHandler @hdr-ref)
-                            (s/join (map #(.format formatter %) (.records @hdr-ref)))
+                            (.logString @hdr-ref)
                             (format "Log handler is nil: (%s)" (pr-str @hdr-ref)))
                  ss (StringSelection. log-text)]
              (.setContents cboard ss ss))

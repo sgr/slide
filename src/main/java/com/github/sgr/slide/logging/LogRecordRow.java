@@ -4,8 +4,10 @@ import java.util.Date;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import com.github.sgr.slide.stream.StreamTableRow;
+import logutil.Log4JLikeFormatter;
 
 public class LogRecordRow extends StreamTableRow {
+    private static Log4JLikeFormatter formatter = new Log4JLikeFormatter();
     // 時刻, スレッドID, ログレベル, ロガー名, クラス名, メソッド名, メッセージ
     private static Class[] colClasses = new Class[] {Date.class, Integer.class, Level.class, String.class, String.class, String.class, String.class};
 
@@ -17,61 +19,66 @@ public class LogRecordRow extends StreamTableRow {
 	return colClasses[column];
     }
 
-    private LogRecord _record = null;
     private Date _date = null;
     private Integer _threadID = null;
+    private Level _level = null;
+    private String _loggerName = null;
+    private String _sourceClassName = null;
+    private String _sourceMethodName = null;
+    private String _message = null;
+    private String _formattedString = null;
 
     public LogRecordRow(LogRecord record) {
-	_record = record;
-    }
-
-    public LogRecord getRecord() {
-	return _record;
-    }
-
-    private Date getRecordDate() {
-	// lazy generation
-	if (_date == null) {
-	    _date = new Date(_record.getMillis());
-	}
-	return _date;
-    }
-
-    private Integer getRecordThreadID() {
-	// lazy generation
-	if (_threadID == null) {
-	    _threadID = new Integer(_record.getThreadID());
-	}
-	return _threadID;
+	_date = new Date(record.getMillis());
+	_threadID = new Integer(record.getThreadID());
+	_level = record.getLevel();
+	_loggerName = record.getLoggerName();
+	_sourceClassName = record.getSourceClassName();
+	_sourceMethodName = record.getSourceMethodName();
+	_message = record.getMessage();
+	_formattedString = formatter.format(record);
     }
 
     @Override public Object getValueAt(int column) {
 	Object value = null;
 	switch (column) {
 	case 0:
-	    value = getRecordDate();
+	    value = _date;
 	    break;
 	case 1:
-	    value = getRecordThreadID();
+	    value = _threadID;
 	    break;
 	case 2:
-	    value = _record.getLevel();
+	    value = _level;
 	    break;
 	case 3:
-	    value = _record.getLoggerName();
+	    value = _loggerName;
 	    break;
 	case 4:
-	    value = _record.getSourceClassName();
+	    value = _sourceClassName;
 	    break;
 	case 5:
-	    value = _record.getSourceMethodName();
+	    value = _sourceMethodName;
 	    break;
 	case 6:
-	    value = _record.getMessage();
+	    value = _message;
 	    break;
 	}
 	return value;
     }
 
-    @Override protected void dispose() {};
+    public String formattedString() {
+	return _formattedString;
+    }
+
+    @Override protected void dispose() {
+	_date = null;
+	_threadID = null;
+	_level = null;
+	_loggerName = null;
+	_sourceClassName = null;
+	_sourceMethodName = null;
+	_message = null;
+	_formattedString = null;
+    }
 }

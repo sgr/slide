@@ -1,4 +1,4 @@
-(defproject slide "0.2.2"
+(defproject slide "0.2.3"
   :description "Several utility functions and classes for Swing-based desktop application."
   :url "https://github.com/sgr/slide"
   :license {:name "Eclipse Public License"

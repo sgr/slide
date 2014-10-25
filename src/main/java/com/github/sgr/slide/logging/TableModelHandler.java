@@ -18,14 +18,14 @@ public class TableModelHandler extends Handler {
 	return _tbl;
     }
 
-    public List<LogRecord> records() {
-	ArrayList<LogRecord> r = new ArrayList<LogRecord>();
+    public String logString() {
+	StringBuilder sb = new StringBuilder();
 	synchronized (_tbl) {
 	    for (int i = _tbl.getRowCount() - 1; i >= 0; i--) {
-		r.add(_tbl.getRowData(i).getRecord());
+		sb.append(_tbl.getRowData(i).formattedString());
 	    }
 	}
-	return r;
+	return sb.toString();
     }
 
     @Override public void publish(LogRecord record) {
